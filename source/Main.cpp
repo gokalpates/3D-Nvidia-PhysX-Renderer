@@ -43,14 +43,14 @@ int main()
 
     //PhysX simulation time accumulator.
     double pAccumulator = 0.0;
-    double pPhysicsStepSize = 1.0 / 165.0;
+    double pPhysicsStepSize = 1.0 / 60.0;
 
     //Scene and scene descriptor.
     physx::PxScene* pScene = nullptr;
     
     physx::PxSceneDesc pSceneDesc(pPhysics->getTolerancesScale());
     pSceneDesc.gravity = physx::PxVec3(0.f, -9.8f, 0.f);
-    pSceneDesc.cpuDispatcher = physx::PxDefaultCpuDispatcherCreate(1);
+    pSceneDesc.cpuDispatcher = physx::PxDefaultCpuDispatcherCreate(15);
     pSceneDesc.filterShader = physx::PxDefaultSimulationFilterShader;
 
     pScene = pPhysics->createScene(pSceneDesc);
@@ -70,16 +70,19 @@ int main()
     std::vector<physx::PxRigidDynamic*> rigidbodyDynamic;
 
     //Create rigid dynamic actor. (Box)
-    unsigned int stackHeight = 30u;
+    unsigned int stackHeight = 300u, stackWidth = 1u;
     for (size_t i = 0; i < stackHeight; i++)
     {
-        physx::PxTransform pBoxTransform = physx::PxTransform(0.f, i * 2.f + 5.f, 0.f);
-        physx::PxBoxGeometry PBoxGeometry(physx::PxVec3(1.f));
-        physx::PxRigidDynamic* pBoxActor = pPhysics->createRigidDynamic(pBoxTransform);
-        physx::PxShape* pBoxShape = physx::PxRigidActorExt::createExclusiveShape(*pBoxActor, PBoxGeometry, *pMaterial);
-        physx::PxRigidBodyExt::updateMassAndInertia(*pBoxActor, physx::PxReal(10.f));
-        rigidbodyDynamic.push_back(pBoxActor);
-        pScene->addActor(*pBoxActor);
+        for (size_t j = 0; j < stackWidth; j++)
+        {
+            physx::PxTransform pBoxTransform = physx::PxTransform(j * 2.f, i * 2.f + 5.f, 0.f);
+            physx::PxBoxGeometry PBoxGeometry(physx::PxVec3(1.f));
+            physx::PxRigidDynamic* pBoxActor = pPhysics->createRigidDynamic(pBoxTransform);
+            physx::PxShape* pBoxShape = physx::PxRigidActorExt::createExclusiveShape(*pBoxActor, PBoxGeometry, *pMaterial);
+            physx::PxRigidBodyExt::updateMassAndInertia(*pBoxActor, physx::PxReal(10.f));
+            rigidbodyDynamic.push_back(pBoxActor);
+            pScene->addActor(*pBoxActor);
+        }
     }
 
     const int screenWidth = 2560, screenHeight = 1440;
@@ -110,6 +113,8 @@ int main()
     glClearColor(0.f, 0.f, 0.f, 1.f);
     glViewport(0, 0, screenWidth, screenHeight);
     glEnable(GL_DEPTH_TEST);
+    glFrontFace(GL_CCW);
+    glEnable(GL_CULL_FACE);
 
     Camera camera(window);
     camera.setCameraSpeed(15.f);
