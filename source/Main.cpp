@@ -66,13 +66,21 @@ int main()
     pPlaneShape->setLocalPose(pPlaneRelativeTransform);
     pScene->addActor(*pPlaneActor);
 
+    //Rigidbody dynamic container for tracking physics objects.
+    std::vector<physx::PxRigidDynamic*> rigidbodyDynamic;
+
     //Create rigid dynamic actor. (Box)
-    physx::PxTransform pBoxTransform = physx::PxTransform(physx::PxVec3(0.f, 10.f, 0.f));
-    physx::PxBoxGeometry PBoxGeometry(physx::PxVec3(1.f));
-    physx::PxRigidDynamic* pBoxActor = pPhysics->createRigidDynamic(pBoxTransform);
-    physx::PxShape* pBoxShape = physx::PxRigidActorExt::createExclusiveShape(*pBoxActor, PBoxGeometry, *pMaterial);
-    physx::PxRigidBodyExt::updateMassAndInertia(*pBoxActor, physx::PxReal(1.f));
-    pScene->addActor(*pBoxActor);
+    unsigned int stackHeight = 30u;
+    for (size_t i = 0; i < stackHeight; i++)
+    {
+        physx::PxTransform pBoxTransform = physx::PxTransform(0.f, i * 2.f + 5.f, 0.f);
+        physx::PxBoxGeometry PBoxGeometry(physx::PxVec3(1.f));
+        physx::PxRigidDynamic* pBoxActor = pPhysics->createRigidDynamic(pBoxTransform);
+        physx::PxShape* pBoxShape = physx::PxRigidActorExt::createExclusiveShape(*pBoxActor, PBoxGeometry, *pMaterial);
+        physx::PxRigidBodyExt::updateMassAndInertia(*pBoxActor, physx::PxReal(10.f));
+        rigidbodyDynamic.push_back(pBoxActor);
+        pScene->addActor(*pBoxActor);
+    }
 
     const int screenWidth = 2560, screenHeight = 1440;
     const float near = 0.1f, far = 1000.f;
@@ -104,6 +112,7 @@ int main()
     glEnable(GL_DEPTH_TEST);
 
     Camera camera(window);
+    camera.setCameraSpeed(15.f);
     Grid grid;
 
     glm::mat4 model = glm::mat4(1.f);
@@ -147,51 +156,48 @@ int main()
         //Update Nvidia PhysX API.
         //CAUTION: PhysX is so sensitive to both very small, large and non constant time steps.
         //Updating simulation with deltatime may cause artifacts like jittering and undefined behavior.
-        pAccumulator += (double)deltaTime;
-        if (pAccumulator >= pPhysicsStepSize)
+        if (glfwGetKey(window, GLFW_KEY_E))
         {
-            pScene->simulate(pPhysicsStepSize);
-            pScene->fetchResults(true);
+            pAccumulator += (double)deltaTime;
+            if (pAccumulator >= pPhysicsStepSize)
+            {
+                pScene->simulate(pPhysicsStepSize);
+                pScene->fetchResults(true);
 
-            pAccumulator = 0.0;
-
-            physx::PxVec3 boxPos = pBoxActor->getGlobalPose().p;
-            std::cout << "Box current Position (" << boxPos.x << " " << boxPos.y << " "<<boxPos.z<<")\n";
+                pAccumulator = 0.0;
+            }
         }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         //Render dynamic rigidbody representation.
         mShader.use();
-        model = glm::mat4(1.f);
+        mShader.setMat4("view", view);
+        mShader.setMat4("projection", projection);
+        glBindTexture(GL_TEXTURE_2D, container);
 
         //Query rigidbody world transform.
-        physx::PxTransform transform = pBoxActor->getGlobalPose();
-        physx::PxMat44 transformationMatrix = physx::PxMat44(transform);
-        const float* fp16Format = transformationMatrix.front();
-        glm::mat4 glmFormat = glm::make_mat4(fp16Format);
-        //Apply transformation to graphics.
-        model *= glmFormat;
+        for (size_t i = 0; i < rigidbodyDynamic.size(); i++)
+        {
+            model = glm::mat4(1.f);
 
-        mShader.setMat4("model", model);
-        mShader.setMat4("view", view);
-        mShader.setMat4("projection", projection);
-        glBindTexture(GL_TEXTURE_2D, container);
-        renderCube();
+            //Query rigidbody actor transform.
+            physx::PxTransform transform = rigidbodyDynamic.at(i)->getGlobalPose();
 
-        //Render static cube with position 10 at x axis.
-        //Doing this because of to be sure PhysX's coordinate system aligns with custom engine.
-        model = glm::mat4(1.f);
-        model = glm::translate(model, glm::vec3(10.f, 0.f, 0.f));
-        mShader.setMat4("model", model);
-        mShader.setMat4("view", view);
-        mShader.setMat4("projection", projection);
-        glBindTexture(GL_TEXTURE_2D, container);
-        renderCube();
+            physx::PxMat44 transformationMatrix = physx::PxMat44(transform);
+            const float* fp16Format = transformationMatrix.front();
+            glm::mat4 glmFormat = glm::make_mat4(fp16Format);
+            
+            //Apply transformation to graphics.
+            model *= glmFormat;
+
+            mShader.setMat4("model", model);
+            renderCube();
+        }
 
         //Render plane representation.
         model = glm::mat4(1.f);
-        model = glm::scale(model, glm::vec3(10.f, 0.f, 10.f));
+        model = glm::scale(model, glm::vec3(1000.f, 0.f, 1000.f));
         mShader.setMat4("model", model);
         glBindTexture(GL_TEXTURE_2D, red);
         renderCube();
