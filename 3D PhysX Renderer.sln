@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.32106.194
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "3D PhysX Renderer", "3D PhysX Renderer.vcxproj", "{C9CD0BAE-9B14-4DAC-B28A-D44619A77988}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C9CD0BAE-9B14-4DAC-B28A-D44619A77988}.Debug|x64.ActiveCfg = Debug|x64
+		{C9CD0BAE-9B14-4DAC-B28A-D44619A77988}.Debug|x64.Build.0 = Debug|x64
+		{C9CD0BAE-9B14-4DAC-B28A-D44619A77988}.Debug|x86.ActiveCfg = Debug|Win32
+		{C9CD0BAE-9B14-4DAC-B28A-D44619A77988}.Debug|x86.Build.0 = Debug|Win32
+		{C9CD0BAE-9B14-4DAC-B28A-D44619A77988}.Release|x64.ActiveCfg = Release|x64
+		{C9CD0BAE-9B14-4DAC-B28A-D44619A77988}.Release|x64.Build.0 = Release|x64
+		{C9CD0BAE-9B14-4DAC-B28A-D44619A77988}.Release|x86.ActiveCfg = Release|Win32
+		{C9CD0BAE-9B14-4DAC-B28A-D44619A77988}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {57F37061-066D-499C-BEB2-D989679DFC1A}
+	EndGlobalSection
+EndGlobal
