@@ -70,7 +70,7 @@ int main()
     std::vector<physx::PxRigidDynamic*> rigidbodyDynamic;
 
     //Create rigid dynamic actor. (Box)
-    unsigned int stackHeight = 300u, stackWidth = 1u;
+    unsigned int stackHeight = 10u, stackWidth = 10u;
     for (size_t i = 0; i < stackHeight; i++)
     {
         for (size_t j = 0; j < stackWidth; j++)
@@ -81,9 +81,25 @@ int main()
             physx::PxShape* pBoxShape = physx::PxRigidActorExt::createExclusiveShape(*pBoxActor, PBoxGeometry, *pMaterial);
             physx::PxRigidBodyExt::updateMassAndInertia(*pBoxActor, physx::PxReal(10.f));
             rigidbodyDynamic.push_back(pBoxActor);
+
+            //if rigidbody has its position located at utmost row in stack then change its property as unaffected from gravity. Also tinker with angular velocity.
+            if (i == stackHeight - 1)
+            {
+                pBoxActor->setActorFlag(physx::PxActorFlag::eDISABLE_GRAVITY, true);
+                pBoxActor->setAngularVelocity(physx::PxVec3(1.f, -3.f, 0.f));
+            }
+
             pScene->addActor(*pBoxActor);
         }
     }
+
+    //Create kinematic actor using sphere. (To simulate camera's effect on other dynamics)
+    physx::PxTransform pInýtTransform = physx::PxTransform(physx::PxVec3(0.f));
+    physx::PxSphereGeometry pSphereGeometry(physx::PxReal(0.3f));
+    physx::PxRigidDynamic* pCameraActor = pPhysics->createRigidDynamic(pInýtTransform);
+    physx::PxShape* pSphereShape = physx::PxRigidActorExt::createExclusiveShape(*pCameraActor, pSphereGeometry, *pMaterial);
+    pCameraActor->setRigidBodyFlag(physx::PxRigidBodyFlag::eKINEMATIC, true);
+    pScene->addActor(*pCameraActor);
 
     const int screenWidth = 2560, screenHeight = 1440;
     const float near = 0.1f, far = 1000.f;
@@ -124,6 +140,8 @@ int main()
     glm::mat4 view = camera.getViewMatrix();
     glm::mat4 projection = glm::perspective(glm::radians(45.f), (float)(screenWidth) / (float)(screenHeight), near, far);
 
+    glm::vec3 viewPos = glm::vec3(0.f);
+
     Shader mShader("shader/main.vert","shader/main.frag");
     Shader gShader("shader/grid.vert", "shader/grid.frag");
 
@@ -157,6 +175,7 @@ int main()
 
         camera.update();
         view = camera.getViewMatrix();
+        viewPos = camera.getCameraPosition();
 
         //Update Nvidia PhysX API.
         //CAUTION: PhysX is so sensitive to both very small, large and non constant time steps.
@@ -206,6 +225,11 @@ int main()
         mShader.setMat4("model", model);
         glBindTexture(GL_TEXTURE_2D, red);
         renderCube();
+
+        //In every frame it is essential to update kinematic dynamic actor which refers camera.
+
+        pInýtTransform.p = physx::PxVec3(viewPos.x, viewPos.y, viewPos.z);
+        pCameraActor->setKinematicTarget(pInýtTransform);
 
         gShader.use();
         model = glm::mat4(1.f);
