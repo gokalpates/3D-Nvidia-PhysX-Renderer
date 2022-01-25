@@ -24,6 +24,14 @@ static physx::PxDefaultErrorCallback pError;
 static physx::PxFoundation* pFoundation = nullptr;
 static physx::PxPhysics* pPhysics = nullptr;
 
+physx::PxMaterial* pMaterial = nullptr;
+
+bool pPhysicsStart = false;
+constexpr float pPhysicsDeleteThreshold = 1000.f;
+
+physx::PxRigidDynamic* createSphereProjectileFromCamera(Camera* camera);
+glm::mat4 getGlmTransformMatrixFromPhysX(physx::PxTransform t);
+
 int main()
 {
     //init Nvidia PhysX API.
@@ -56,7 +64,7 @@ int main()
     pScene = pPhysics->createScene(pSceneDesc);
 
     //Creating common material.
-    physx::PxMaterial* pMaterial = pPhysics->createMaterial(0.5f, 0.5f, 0.5f);
+    pMaterial = pPhysics->createMaterial(0.5f, 0.5f, 0.5f);
 
     //Create rigid static actor. (Plane)
     physx::PxTransform pPlaneRelativeTransform = physx::PxTransform(physx::PxVec3(0.f), physx::PxQuat(physx::PxHalfPi, physx::PxVec3(0.f, 0.f, 1.f)));
@@ -68,6 +76,10 @@ int main()
 
     //Rigidbody dynamic container for tracking physics objects.
     std::vector<physx::PxRigidDynamic*> rigidbodyDynamic;
+    //Projectile dynamic container for tracking camera projectiles.
+    std::vector < physx::PxRigidDynamic*> projectileDynamic;
+    //To obstruct creating vast numbers of projectiles we will use lock mechanism.
+    bool blockProjectileGeneration = false;
 
     //Create rigid dynamic actor. (Box)
     unsigned int stackHeight = 10u, stackWidth = 10u;
@@ -79,16 +91,8 @@ int main()
             physx::PxBoxGeometry PBoxGeometry(physx::PxVec3(1.f));
             physx::PxRigidDynamic* pBoxActor = pPhysics->createRigidDynamic(pBoxTransform);
             physx::PxShape* pBoxShape = physx::PxRigidActorExt::createExclusiveShape(*pBoxActor, PBoxGeometry, *pMaterial);
-            physx::PxRigidBodyExt::updateMassAndInertia(*pBoxActor, physx::PxReal(10.f));
+            physx::PxRigidBodyExt::updateMassAndInertia(*pBoxActor, physx::PxReal(1.f));
             rigidbodyDynamic.push_back(pBoxActor);
-
-            //if rigidbody has its position located at utmost row in stack then change its property as unaffected from gravity. Also tinker with angular velocity.
-            if (i == stackHeight - 1)
-            {
-                pBoxActor->setActorFlag(physx::PxActorFlag::eDISABLE_GRAVITY, true);
-                pBoxActor->setAngularVelocity(physx::PxVec3(1.f, -3.f, 0.f));
-            }
-
             pScene->addActor(*pBoxActor);
         }
     }
@@ -142,6 +146,8 @@ int main()
 
     glm::vec3 viewPos = glm::vec3(0.f);
 
+    Model sphere("resources/sphere.obj");
+
     Shader mShader("shader/main.vert","shader/main.frag");
     Shader gShader("shader/grid.vert", "shader/grid.frag");
 
@@ -172,6 +178,22 @@ int main()
         glfwPollEvents();
         if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) && glfwGetKey(window, GLFW_KEY_X))
             glfwSetWindowShouldClose(window, true);
+        if (glfwGetKey(window, GLFW_KEY_E))
+            pPhysicsStart = true;
+
+        if (glfwGetKey(window,GLFW_KEY_SPACE) && !blockProjectileGeneration)
+        {
+            blockProjectileGeneration = true;
+
+            physx::PxRigidDynamic* projectileActor = createSphereProjectileFromCamera(&camera);
+            projectileDynamic.push_back(projectileActor);
+            pScene->addActor(*projectileActor);
+
+        }
+        else if (!glfwGetKey(window, GLFW_KEY_SPACE)) //If it is not pressed then 
+        {
+            blockProjectileGeneration = false;
+        }
 
         camera.update();
         view = camera.getViewMatrix();
@@ -180,7 +202,7 @@ int main()
         //Update Nvidia PhysX API.
         //CAUTION: PhysX is so sensitive to both very small, large and non constant time steps.
         //Updating simulation with deltatime may cause artifacts like jittering and undefined behavior.
-        if (glfwGetKey(window, GLFW_KEY_E))
+        if (pPhysicsStart)
         {
             pAccumulator += (double)deltaTime;
             if (pAccumulator >= pPhysicsStepSize)
@@ -207,16 +229,47 @@ int main()
 
             //Query rigidbody actor transform.
             physx::PxTransform transform = rigidbodyDynamic.at(i)->getGlobalPose();
+            //Track object distance from view position in order to delete them if they exceed designated threshold.
+            glm::vec3 locationRelativeToViewPos(glm::vec3(transform.p.x, transform.p.y, transform.p.z) - viewPos);
+            if (glm::length(viewPos) > pPhysicsDeleteThreshold)
+            {
+                if (rigidbodyDynamic.at(i)->isReleasable())
+                {
+                    rigidbodyDynamic.at(i)->release();
+                    rigidbodyDynamic.erase(rigidbodyDynamic.begin() + i);
+                }
+            }
 
-            physx::PxMat44 transformationMatrix = physx::PxMat44(transform);
-            const float* fp16Format = transformationMatrix.front();
-            glm::mat4 glmFormat = glm::make_mat4(fp16Format);
-            
             //Apply transformation to graphics.
-            model *= glmFormat;
+            model *= getGlmTransformMatrixFromPhysX(transform);
 
             mShader.setMat4("model", model);
             renderCube();
+        }
+
+        //Query projectile rigidbody world transform.
+        for (size_t i = 0; i < projectileDynamic.size(); i++)
+        {
+            model = glm::mat4(1.f);
+
+            //Query rigidbody actor transform.
+            physx::PxTransform transform = projectileDynamic.at(i)->getGlobalPose();
+            //Track object distance from view position in order to delete them if they exceed designated threshold.
+            glm::vec3 locationRelativeToViewPos(glm::vec3(transform.p.x, transform.p.y, transform.p.z) - viewPos);
+            if (glm::length(viewPos) > pPhysicsDeleteThreshold)
+            {
+                if (projectileDynamic.at(i)->isReleasable())
+                {
+                    projectileDynamic.at(i)->release();
+                    projectileDynamic.erase(projectileDynamic.begin() + i);
+                }
+            }
+
+            //Apply transformation to graphics.
+            model *= getGlmTransformMatrixFromPhysX(transform);
+
+            mShader.setMat4("model", model);
+            sphere.Draw(mShader);
         }
 
         //Render plane representation.
@@ -250,4 +303,33 @@ int main()
 
     glfwDestroyWindow(window);
     glfwTerminate();
+}
+
+physx::PxRigidDynamic* createSphereProjectileFromCamera(Camera* camera)
+{
+    float distanceCoefficient = 10.f;
+    float velocityCoefficient = 100.f;
+
+    glm::vec3 viewPos = camera->getCameraPosition();
+    glm::vec3 viewFront = camera->getCameraFront();
+    glm::vec3 initPos = viewPos + distanceCoefficient * viewFront;
+    physx::PxVec3 velocity = physx::PxVec3(viewFront.x,viewFront.y,viewFront.z) * velocityCoefficient;
+
+    physx::PxTransform t = physx::PxTransform(physx::PxVec3(initPos.x, initPos.y, initPos.z));
+    physx::PxSphereGeometry g = physx::PxSphereGeometry(1.f);
+    physx::PxRigidDynamic* actor = pPhysics->createRigidDynamic(t);
+    physx::PxRigidActorExt::createExclusiveShape(*actor, g, *pMaterial);
+    physx::PxRigidBodyExt::updateMassAndInertia(*actor, physx::PxReal(1.f));
+    actor->setLinearVelocity(velocity);
+
+    return actor;
+}
+
+glm::mat4 getGlmTransformMatrixFromPhysX(physx::PxTransform t)
+{
+    physx::PxMat44 transformationMatrix = physx::PxMat44(t);
+    const float* fp16Format = transformationMatrix.front();
+    glm::mat4 glmFormat = glm::make_mat4(fp16Format);
+
+    return glmFormat;
 }
