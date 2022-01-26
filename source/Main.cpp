@@ -82,7 +82,7 @@ int main()
     bool blockProjectileGeneration = false;
 
     //Create rigid dynamic actor. (Box)
-    unsigned int stackHeight = 10u, stackWidth = 10u;
+    unsigned int stackHeight = 4u, stackWidth = 4u;
     for (size_t i = 0; i < stackHeight; i++)
     {
         for (size_t j = 0; j < stackWidth; j++)
@@ -92,6 +92,8 @@ int main()
             physx::PxRigidDynamic* pBoxActor = pPhysics->createRigidDynamic(pBoxTransform);
             physx::PxShape* pBoxShape = physx::PxRigidActorExt::createExclusiveShape(*pBoxActor, PBoxGeometry, *pMaterial);
             physx::PxRigidBodyExt::updateMassAndInertia(*pBoxActor, physx::PxReal(1.f));
+            physx::PxDominanceGroup group = 7u;
+            pBoxActor->setDominanceGroup(group);
             rigidbodyDynamic.push_back(pBoxActor);
             pScene->addActor(*pBoxActor);
         }
@@ -104,13 +106,16 @@ int main()
     physx::PxShape* pSphereShape = physx::PxRigidActorExt::createExclusiveShape(*pCameraActor, pSphereGeometry, *pMaterial);
     pCameraActor->setRigidBodyFlag(physx::PxRigidBodyFlag::eKINEMATIC, true);
     pScene->addActor(*pCameraActor);
+    
+    //Set dominance groups.
+    pScene->setDominanceGroupPair(7u, 3u, physx::PxDominanceGroupPair(0, 1));
 
     const int screenWidth = 2560, screenHeight = 1440;
     const float near = 0.1f, far = 1000.f;
 
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow* window = glfwCreateWindow(screenWidth, screenHeight, "OpenGL Window", NULL, NULL);
@@ -320,6 +325,8 @@ physx::PxRigidDynamic* createSphereProjectileFromCamera(Camera* camera)
     physx::PxRigidDynamic* actor = pPhysics->createRigidDynamic(t);
     physx::PxRigidActorExt::createExclusiveShape(*actor, g, *pMaterial);
     physx::PxRigidBodyExt::updateMassAndInertia(*actor, physx::PxReal(1.f));
+    physx::PxDominanceGroup group = 3u;
+    actor->setDominanceGroup(group);
     actor->setLinearVelocity(velocity);
 
     return actor;
