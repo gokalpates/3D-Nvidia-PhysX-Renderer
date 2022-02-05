@@ -12,6 +12,8 @@
 #include "Utilities.h"
 #include "Grid.h"
 
+#include "CollisionCallback.h"
+
 float deltaTime = 0.0, currentFrame, lastFrame = 0.f;
 float diffTime = 0.0, currentTime, lastTime = 0.f;
 int fpsToShow = 0;
@@ -28,6 +30,8 @@ physx::PxMaterial* pMaterial = nullptr;
 
 bool pPhysicsStart = false;
 constexpr float pPhysicsDeleteThreshold = 1000.f;
+
+CollisionCallback collisionCallback;
 
 physx::PxRigidDynamic* createSphereProjectileFromCamera(Camera* camera);
 glm::mat4 getGlmTransformMatrixFromPhysX(physx::PxTransform t);
@@ -60,6 +64,7 @@ int main()
     pSceneDesc.gravity = physx::PxVec3(0.f, -9.8f, 0.f);
     pSceneDesc.cpuDispatcher = physx::PxDefaultCpuDispatcherCreate(15);
     pSceneDesc.filterShader = physx::PxDefaultSimulationFilterShader;
+    pSceneDesc.simulationEventCallback = &collisionCallback;
 
     pScene = pPhysics->createScene(pSceneDesc);
 
@@ -82,7 +87,7 @@ int main()
     bool blockProjectileGeneration = false;
 
     //Create rigid dynamic actor. (Box)
-    unsigned int stackHeight = 4u, stackWidth = 4u;
+    unsigned int stackHeight = 5u, stackWidth = 5u;
     for (size_t i = 0; i < stackHeight; i++)
     {
         for (size_t j = 0; j < stackWidth; j++)
@@ -92,8 +97,6 @@ int main()
             physx::PxRigidDynamic* pBoxActor = pPhysics->createRigidDynamic(pBoxTransform);
             physx::PxShape* pBoxShape = physx::PxRigidActorExt::createExclusiveShape(*pBoxActor, PBoxGeometry, *pMaterial);
             physx::PxRigidBodyExt::updateMassAndInertia(*pBoxActor, physx::PxReal(1.f));
-            physx::PxDominanceGroup group = 7u;
-            pBoxActor->setDominanceGroup(group);
             rigidbodyDynamic.push_back(pBoxActor);
             pScene->addActor(*pBoxActor);
         }
@@ -106,9 +109,17 @@ int main()
     physx::PxShape* pSphereShape = physx::PxRigidActorExt::createExclusiveShape(*pCameraActor, pSphereGeometry, *pMaterial);
     pCameraActor->setRigidBodyFlag(physx::PxRigidBodyFlag::eKINEMATIC, true);
     pScene->addActor(*pCameraActor);
-    
-    //Set dominance groups.
-    pScene->setDominanceGroupPair(7u, 3u, physx::PxDominanceGroupPair(0, 1));
+
+    //Create a trigger shape using box.
+    pInýtTransform = physx::PxTransform(physx::PxVec3(0.f,1.f,15.f));
+    physx::PxBoxGeometry pTriggerBoxGeometry(physx::PxVec3(5.f,1.f,5.f));
+    physx::PxRigidStatic* pTriggerActor = pPhysics->createRigidStatic(pInýtTransform);
+    physx::PxShape* pTriggerBoxShape = physx::PxRigidActorExt::createExclusiveShape(*pTriggerActor, pTriggerBoxGeometry, *pMaterial);
+
+    pTriggerBoxShape->setFlag(physx::PxShapeFlag::eSIMULATION_SHAPE, false);
+    pTriggerBoxShape->setFlag(physx::PxShapeFlag::eTRIGGER_SHAPE, true);
+
+    pScene->addActor(*pTriggerActor);
 
     const int screenWidth = 2560, screenHeight = 1440;
     const float near = 0.1f, far = 1000.f;
@@ -284,6 +295,34 @@ int main()
         glBindTexture(GL_TEXTURE_2D, red);
         renderCube();
 
+        //Render trigger representation. (in wireframe mode).
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glDisable(GL_CULL_FACE);
+        mShader.setBool("isWireframe", true);
+
+        model = glm::mat4(1.f);
+        {
+            physx::PxTransform t = pTriggerActor->getGlobalPose();
+            model *= getGlmTransformMatrixFromPhysX(t);
+            model = glm::scale(model, glm::vec3(5.f, 1.f, 5.f));
+        }
+        mShader.setMat4("model", model);
+        glBindTexture(GL_TEXTURE_2D, container);
+        renderCube();
+
+        mShader.setBool("isWireframe", false);
+        glEnable(GL_CULL_FACE);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+        //Render teleport destination box.
+        mShader.setBool("isWireframe", true);
+
+        model = glm::mat4(1.f);
+        model = glm::translate(model, glm::vec3(0.f, 15.f, 15.f));
+        mShader.setMat4("model", model);
+        renderCube();
+        mShader.setBool("isWireframe", false);
+
         //In every frame it is essential to update kinematic dynamic actor which refers camera.
 
         pInýtTransform.p = physx::PxVec3(viewPos.x, viewPos.y, viewPos.z);
@@ -325,8 +364,6 @@ physx::PxRigidDynamic* createSphereProjectileFromCamera(Camera* camera)
     physx::PxRigidDynamic* actor = pPhysics->createRigidDynamic(t);
     physx::PxRigidActorExt::createExclusiveShape(*actor, g, *pMaterial);
     physx::PxRigidBodyExt::updateMassAndInertia(*actor, physx::PxReal(1.f));
-    physx::PxDominanceGroup group = 3u;
-    actor->setDominanceGroup(group);
     actor->setLinearVelocity(velocity);
 
     return actor;

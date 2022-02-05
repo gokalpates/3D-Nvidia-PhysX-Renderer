@@ -152,6 +152,7 @@
     <ClCompile Include="source\Grid.cpp" />
     <ClCompile Include="source\Main.cpp" />
     <ClCompile Include="source\Utilities.cpp" />
+    <ClCompile Include="source\CollisionCallback.cpp" />
     <ClCompile Include="vendor\glad\src\glad.c" />
     <ClCompile Include="vendor\stb\stb_image.cpp" />
   </ItemGroup>
@@ -163,6 +164,7 @@
     <ClInclude Include="include\Model.h" />
     <ClInclude Include="include\Shader.h" />
     <ClInclude Include="include\Utilities.h" />
+    <ClInclude Include="include\CollisionCallback.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shader\grid.frag" />
