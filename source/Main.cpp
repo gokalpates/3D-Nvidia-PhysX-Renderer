@@ -13,6 +13,7 @@
 #include "Grid.h"
 
 #include "CollisionCallback.h"
+#include "FilterShader.h"
 
 float deltaTime = 0.0, currentFrame, lastFrame = 0.f;
 float diffTime = 0.0, currentTime, lastTime = 0.f;
@@ -65,6 +66,7 @@ int main()
     pSceneDesc.cpuDispatcher = physx::PxDefaultCpuDispatcherCreate(15);
     pSceneDesc.filterShader = physx::PxDefaultSimulationFilterShader;
     pSceneDesc.simulationEventCallback = &collisionCallback;
+    pSceneDesc.filterShader = customFilterShader;
 
     pScene = pPhysics->createScene(pSceneDesc);
 

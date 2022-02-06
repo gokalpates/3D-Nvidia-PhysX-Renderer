@@ -147,6 +147,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="source\FilterShader.cpp" />
     <ClCompile Include="source\Callback.cpp" />
     <ClCompile Include="source\Camera.cpp" />
     <ClCompile Include="source\Grid.cpp" />
@@ -157,6 +158,7 @@
     <ClCompile Include="vendor\stb\stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\FilterShader.h" />
     <ClInclude Include="include\Callback.h" />
     <ClInclude Include="include\Camera.h" />
     <ClInclude Include="include\Grid.h" />
